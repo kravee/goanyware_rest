@@ -1,6 +1,6 @@
 #!/bin/python
 from datetime import date
-import requests, json, os, logging
+import requests, json, os, logging, datetime
 from requests.auth import HTTPBasicAuth
 import pandas as pd
 
@@ -18,9 +18,10 @@ def get_java_heap(logger, ip, user, password):
     respond = requests.get(url, auth=HTTPBasicAuth(user, password))
     respond = json.loads(respond.text)
     heapMemoryUsed = respond["data"]["heapMemoryUsed"]
-    nonHeapMemoryUsed = respond["data"]["nonHeapMemoryUsed"]
+    heapMemoryCommitted = respond["data"]["heapMemoryCommitted"]
     heapMemoryMaximum = respond["data"]["heapMemoryMaximum"]
-    return heapMemoryUsed, nonHeapMemoryUsed, heapMemoryMaximum
+    return heapMemoryUsed, heapMemoryCommitted, heapMemoryMaximum
+
 
 def script_log(script_dir, log_name, date='20210101'):
     '''
@@ -64,9 +65,21 @@ def main():
     df[df_obj.columns] = df_obj.apply(lambda x: x.str.strip())
     for i in range(len(df)):
         ip = df.iloc[i]['server_ip']
-        heapMemoryUsed, nonHeapMemoryUsed, heapMemoryMaximum = get_java_heap(logger, ip, user, password)
-        logger.info('%s %s %s %s', df.iloc[i]['server_hostname'], heapMemoryMaximum, heapMemoryUsed, nonHeapMemoryUsed)
+        heapMemoryUsed, heapMemoryCommitted, heapMemoryMaximum = get_java_heap(logger, ip, user, password)
+        logger.debug('%s %s %s %s', df.iloc[i]['server_hostname'], heapMemoryMaximum, heapMemoryUsed,
+                    heapMemoryCommitted)
+        try:
+            cmd_bq = str('').join(['echo \'{"date": "', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), \
+                               '" , "heapMemoryMaximum": ', str(heapMemoryMaximum), \
+                               ', "heapMemoryCommitted": ', str(heapMemoryCommitted), \
+                               ', "heapMemoryUsed": ', str(heapMemoryUsed), \
+                               ', "Server_Hostname": "', str(df.iloc[i]["server_hostname"]), \
+                               '"}\' | bq insert ftp.java_heap'])
+        except Exception as e:
+            logger.info(e)
+            logger.info("Execute command: %s", cmd_bq, )
+        os.system(cmd_bq)
 
 
 if __name__ == "__main__":
-     main()
+    main()
