@@ -15,7 +15,7 @@ def get_java_heap(logger, ip, user, password):
     :return: heapMemoryUsed, nonHeapMemoryUsed, heapMemoryMaximum
     """
     url = str('').join(['http://', ip, ':8000/goanywhere/rest/gacmd/v1/system/status'])
-    respond = requests.get(url, auth=HTTPBasicAuth(user, password))
+    respond = requests.get(url, auth=HTTPBasicAuth(user, password), timeout=3.0)
     respond = json.loads(respond.text)
     heapMemoryUsed = respond["data"]["heapMemoryUsed"]
     heapMemoryCommitted = respond["data"]["heapMemoryCommitted"]
@@ -73,8 +73,8 @@ def main():
                                '" , "heapMemoryMaximum": ', str(heapMemoryMaximum), \
                                ', "heapMemoryCommitted": ', str(heapMemoryCommitted), \
                                ', "heapMemoryUsed": ', str(heapMemoryUsed), \
-                               ', "Server_Hostname": "', str(df.iloc[i]["server_hostname"]), \
-                               '"}\' | bq insert ftp.java_heap'])
+                               ', "mft_hostname": "', str(df.iloc[i]["server_hostname"]), \
+                               '"}\' | bq insert ftp.mft_java_heap'])
         except Exception as e:
             logger.info(e)
             logger.info("Execute command: %s", cmd_bq, )
